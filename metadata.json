@@ -1,0 +1,8 @@
+{
+  "name": "LAPIB Connect",
+  "description": "Portal da Liga Acadêmica de Patologia e Inovação Biomédica. Gestão de eventos, projetos de pesquisa e assistente de IA para acadêmicos.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
