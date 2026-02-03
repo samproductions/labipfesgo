@@ -1,7 +1,8 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { getAssistantResponseStream } from './geminiService';
-import { Member, Project } from './types';
+import { Member, Project, UserProfile } from './types';
+import CloudService from './cloudService';
 
 interface Message {
   role: 'user' | 'model';
@@ -12,9 +13,10 @@ interface Message {
 interface ChatAssistantProps {
   members: Member[];
   projects: Project[];
+  user: UserProfile;
 }
 
-const ChatAssistant: React.FC<ChatAssistantProps> = ({ members, projects }) => {
+const ChatAssistant: React.FC<ChatAssistantProps> = ({ members, projects, user }) => {
   const [messages, setMessages] = useState<Message[]>([
     { 
       role: 'model', 
@@ -23,12 +25,27 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ members, projects }) => {
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isLiveMode, setIsLiveMode] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
+
+  // Sincronização inicial com Firebase
+  useEffect(() => {
+    const loadHistory = async () => {
+      if (user.email) {
+        const history = await CloudService.getChatHistory(user.email);
+        if (history && history.length > 0) {
+          setMessages(history);
+        }
+      }
+      setIsSyncing(false);
+      scrollToBottom();
+    };
+    loadHistory();
+  }, [user.email]);
 
   useEffect(() => {
     scrollToBottom();
@@ -39,15 +56,15 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ members, projects }) => {
     if (!input.trim() || isLoading) return;
 
     const userMsg = input.trim();
-    const history = messages.map(m => ({ role: m.role, text: m.text }));
+    const historyForAI = messages.map(m => ({ role: m.role, text: m.text }));
     
+    const newMessages: Message[] = [...messages, { role: 'user', text: userMsg }];
+    setMessages(newMessages);
     setInput('');
-    setMessages(prev => [...prev, { role: 'user', text: userMsg }]);
     setIsLoading(true);
 
     try {
-      // Fixed: Passing history, members, and projects as separate parameters to match geminiService signature
-      const stream = await getAssistantResponseStream(userMsg, history, members, projects);
+      const stream = await getAssistantResponseStream(userMsg, historyForAI, members, projects);
       
       let fullText = '';
       let groundingLinks: { title: string; uri: string }[] = [];
@@ -55,7 +72,6 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ members, projects }) => {
       setMessages(prev => [...prev, { role: 'model', text: '', links: [] }]);
 
       for await (const chunk of stream) {
-        // chunk.text is a direct property access as per GenAI guidelines
         const textChunk = chunk.text;
         const candidates = (chunk as any).candidates;
         const metadata = candidates?.[0]?.groundingMetadata;
@@ -74,10 +90,20 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ members, projects }) => {
           setMessages(prev => {
             const last = prev[prev.length - 1];
             const others = prev.slice(0, -1);
-            return [...others, { ...last, text: fullText, links: [...groundingLinks] }];
+            const updatedModelMsg: Message = { ...last, text: fullText, links: [...groundingLinks] };
+            const updatedAll = [...others, updatedModelMsg];
+            // Salva na nuvem a cada chunk (ou após o loop para performance)
+            return updatedAll;
           });
         }
       }
+      
+      // Salva estado final na nuvem após o streaming completo
+      setMessages(prev => {
+        CloudService.saveChatHistory(user.email, prev);
+        return prev;
+      });
+
     } catch (error) {
       console.error(error);
       setMessages(prev => [...prev, { role: 'model', text: 'Desculpe, tive um erro ao processar sua dúvida. Verifique sua conexão acadêmica.' }]);
@@ -88,33 +114,35 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ members, projects }) => {
 
   return (
     <div className="flex flex-col h-[75vh] max-w-4xl mx-auto bg-white rounded-[3rem] border border-slate-200 shadow-2xl overflow-hidden animate-in fade-in duration-500 relative">
+      {/* Header Fixo */}
       <div className="bg-[#055c47] p-6 flex items-center justify-between text-white border-b border-emerald-500/20 z-10 shadow-lg shrink-0">
         <div className="flex items-center gap-4">
           <div className={`w-12 h-12 rounded-full flex items-center justify-center shadow-lg border-2 border-white/20 transition-all ${isLoading ? 'bg-emerald-400' : 'bg-emerald-600'}`}>
             <i className={`fa-solid ${isLoading ? 'fa-dna animate-spin' : 'fa-robot'} text-xl`}></i>
           </div>
-          <div>
+          <div className="text-left">
             <h3 className="font-black text-sm uppercase tracking-tight">Iris IA • Tutoria LAPIB</h3>
             <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-emerald-300">
               <span className={`w-2 h-2 rounded-full ${isLoading ? 'bg-emerald-400 animate-pulse' : 'bg-emerald-900'}`}></span>
-              {isLoading ? 'Pesquisando...' : 'Modo Streaming Ativo'}
+              {isLoading ? 'Pesquisando Bases...' : (isSyncing ? 'Sincronizando Nuvem...' : 'Sincronizada em Tempo Real')}
             </div>
           </div>
         </div>
         <button 
-          onClick={() => setIsLiveMode(!isLiveMode)}
-          className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${isLiveMode ? 'bg-emerald-500 text-white' : 'bg-white/10 text-emerald-300'}`}
+          onClick={() => { if(confirm("Limpar histórico da nuvem?")) { setMessages([{ role: 'model', text: 'Histórico limpo. Como posso ajudar de novo?' }]); CloudService.saveChatHistory(user.email, []); } }}
+          className="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-all"
+          title="Limpar Conversa"
         >
-          <i className="fa-solid fa-microphone"></i>
-          {isLiveMode ? 'Voz On' : 'Ativar Voz'}
+          <i className="fa-solid fa-trash-can text-xs"></i>
         </button>
       </div>
 
+      {/* Área de Mensagens (Scrollable) */}
       <div className="flex-1 overflow-y-auto p-8 space-y-8 bg-[#f8fafc] no-scrollbar">
         {messages.map((msg, idx) => (
           <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-in slide-in-from-bottom-2`}>
-            <div className="max-w-[85%] space-y-3">
-              <div className={`p-6 rounded-[2rem] shadow-sm text-left ${
+            <div className={`max-w-[85%] space-y-3 ${msg.role === 'user' ? 'text-right' : 'text-left'}`}>
+              <div className={`p-6 rounded-[2rem] shadow-sm ${
                 msg.role === 'user' 
                   ? 'bg-[#055c47] text-white rounded-tr-none' 
                   : 'bg-white text-slate-800 border border-slate-100 rounded-tl-none'
@@ -123,7 +151,7 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ members, projects }) => {
               </div>
 
               {msg.links && msg.links.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-2">
+                <div className="flex flex-wrap gap-2 mt-2 justify-start">
                   {msg.links.map((link, lIdx) => (
                     <a 
                       key={lIdx} 
@@ -133,7 +161,7 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ members, projects }) => {
                       className="flex items-center gap-2 bg-emerald-50 border border-emerald-100 px-3 py-1.5 rounded-full text-[8px] font-black text-emerald-700 hover:bg-emerald-100 transition-colors uppercase tracking-tight"
                     >
                       <i className="fa-solid fa-link"></i>
-                      {link.title.substring(0, 25)}...
+                      {link.title.substring(0, 20)}...
                     </a>
                   ))}
                 </div>
@@ -149,21 +177,23 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ members, projects }) => {
                   <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-bounce delay-100"></div>
                   <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-bounce delay-200"></div>
                 </div>
-                <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Consultando Bases Científicas...</span>
+                <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Iris está processando...</span>
              </div>
           </div>
         )}
         <div ref={messagesEndRef} />
       </div>
 
+      {/* Input de Texto (Rodapé) */}
       <div className="p-6 border-t border-slate-100 bg-white shrink-0">
         <form onSubmit={handleSend} className="flex gap-4">
           <input 
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Pergunte sobre hematologia, projetos da liga, artigos..."
+            placeholder="Tire suas dúvidas acadêmicas com a IRIS..."
             className="flex-1 bg-slate-50 border border-slate-100 rounded-full px-8 py-5 text-sm focus:ring-2 focus:ring-[#055c47] outline-none transition font-medium"
+            disabled={isLoading}
           />
           <button 
             type="submit"
@@ -174,29 +204,6 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ members, projects }) => {
           </button>
         </form>
       </div>
-
-      {isLiveMode && (
-        <div className="absolute inset-0 bg-[#052d22]/95 z-50 flex flex-col items-center justify-center p-10 text-center animate-in fade-in">
-           <div className="w-32 h-32 bg-emerald-500 rounded-full flex items-center justify-center mb-10 shadow-[0_0_50px_rgba(16,185,129,0.5)] border-4 border-white/20">
-              <i className="fa-solid fa-microphone text-4xl text-white animate-pulse"></i>
-           </div>
-           <h3 className="text-2xl font-black text-white uppercase tracking-tight mb-3">Iris Live Interface</h3>
-           <p className="text-emerald-400 text-[10px] font-black uppercase tracking-[0.4em] mb-12">Processamento de Linguagem Natural em Tempo Real</p>
-           
-           <div className="flex gap-1.5 h-12 items-center">
-              {[...Array(15)].map((_, i) => (
-                <div key={i} className="w-1.5 bg-emerald-400 rounded-full animate-pulse" style={{ height: `${20 + Math.random() * 80}%`, animationDelay: `${i * 0.05}s` }}></div>
-              ))}
-           </div>
-
-           <button 
-            onClick={() => setIsLiveMode(false)}
-            className="mt-20 bg-white text-[#052d22] px-12 py-5 rounded-[2rem] font-black text-[10px] uppercase tracking-widest shadow-2xl hover:bg-red-50 hover:text-red-600 transition-all active:scale-95"
-           >
-             Desativar Interface de Voz
-           </button>
-        </div>
-      )}
     </div>
   );
 };

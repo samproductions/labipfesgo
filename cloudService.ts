@@ -5,9 +5,11 @@ import {
   getDocs, 
   setDoc, 
   doc, 
+  getDoc,
   updateDoc, 
   query, 
-  orderBy 
+  orderBy,
+  onSnapshot
 } from "firebase/firestore";
 import { 
   ref, 
@@ -18,60 +20,87 @@ import { UserProfile, Member, Project, CalendarEvent, Lab } from './types';
 
 class CloudService {
   /**
-   * Fallback Master: Salva localmente se a nuvem falhar
+   * CHAT HISTORY PERSISTENCE
    */
-  private static saveLocalFallback(key: string, data: any) {
+  static async saveChatHistory(email: string, messages: any[]): Promise<void> {
+    if (!isFirebaseConfigured || !email) return;
     try {
-      const existing = JSON.parse(localStorage.getItem(key) || '[]');
-      const index = existing.findIndex((item: any) => (data.id && item.id === data.id) || (data.email && item.email === data.email));
-      if (index >= 0) existing[index] = data;
-      else existing.push(data);
-      localStorage.setItem(key, JSON.stringify(existing));
+      const chatRef = doc(db, "chats", email.toLowerCase().trim());
+      await setDoc(chatRef, { messages, lastUpdate: new Date().toISOString() });
     } catch (e) {
-      console.error("Erro no local fallback:", e);
+      console.error("Erro ao salvar chat na nuvem:", e);
     }
   }
 
-  private static getLocalFallback(key: string): any[] {
+  static async getChatHistory(email: string): Promise<any[]> {
+    if (!isFirebaseConfigured || !email) return [];
     try {
-      return JSON.parse(localStorage.getItem(key) || '[]');
+      const chatRef = doc(db, "chats", email.toLowerCase().trim());
+      const snap = await getDoc(chatRef);
+      return snap.exists() ? snap.data().messages : [];
     } catch (e) {
       return [];
     }
   }
 
   /**
-   * Upload de Imagem com Fallback
+   * LISTENERS EM TEMPO REAL
+   */
+  static subscribeToMembers(callback: (members: Member[]) => void) {
+    if (!isFirebaseConfigured) return () => {};
+    return onSnapshot(collection(db, "members"), (snapshot) => {
+      const members = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Member));
+      callback(members);
+    });
+  }
+
+  static subscribeToProjects(callback: (projects: Project[]) => void) {
+    if (!isFirebaseConfigured) return () => {};
+    const q = query(collection(db, "projects"), orderBy("startDate", "desc"));
+    return onSnapshot(q, (snapshot) => {
+      const projects = snapshot.docs.map(doc => doc.data() as Project);
+      callback(projects);
+    });
+  }
+
+  static subscribeToEvents(callback: (events: CalendarEvent[]) => void) {
+    if (!isFirebaseConfigured) return () => {};
+    return onSnapshot(collection(db, "events"), (snapshot) => {
+      const events = snapshot.docs.map(doc => doc.data() as CalendarEvent);
+      callback(events);
+    });
+  }
+
+  static subscribeToLabs(callback: (labs: Lab[]) => void) {
+    if (!isFirebaseConfigured) return () => {};
+    return onSnapshot(collection(db, "labs"), (snapshot) => {
+      const labs = snapshot.docs.map(doc => doc.data() as Lab);
+      callback(labs);
+    });
+  }
+
+  /**
+   * PERSISTÊNCIA E UPLOAD
    */
   static async uploadImage(base64Data: string, path: string): Promise<string> {
     if (!base64Data || !base64Data.startsWith('data:image')) return base64Data;
     if (!isFirebaseConfigured) return base64Data;
-
     try {
       const storageRef = ref(storage, path);
       await uploadString(storageRef, base64Data, 'data_url');
       return await getDownloadURL(storageRef);
     } catch (e) {
-      console.warn("Firebase Storage indisponível, mantendo base64 local.");
       return base64Data;
     }
   }
 
-  /**
-   * USUÁRIOS
-   */
   static async getCloudUsers(): Promise<UserProfile[]> {
-    if (!isFirebaseConfigured) return this.getLocalFallback('lapib_local_users');
-    try {
-      const querySnapshot = await getDocs(collection(db, "users"));
-      return querySnapshot.docs.map(doc => doc.data() as UserProfile);
-    } catch (e) {
-      return this.getLocalFallback('lapib_local_users');
-    }
+    if (!isFirebaseConfigured) return [];
+    const querySnapshot = await getDocs(collection(db, "users"));
+    return querySnapshot.docs.map(doc => doc.data() as UserProfile);
   }
 
   static async saveUser(user: UserProfile): Promise<void> {
-    this.saveLocalFallback('lapib_local_users', user);
     if (!isFirebaseConfigured) return;
     try {
       let finalPhoto = user.photoUrl;
@@ -80,27 +109,11 @@ class CloudService {
       }
       await setDoc(doc(db, "users", user.email.toLowerCase().trim()), { ...user, photoUrl: finalPhoto });
     } catch (e) {
-      console.error("Erro ao salvar usuário na nuvem:", e);
-    }
-  }
-
-  /**
-   * MEMBROS
-   */
-  static async getCloudMembers(): Promise<Member[]> {
-    if (!isFirebaseConfigured) return this.getLocalFallback('lapib_local_members');
-    try {
-      const querySnapshot = await getDocs(collection(db, "members"));
-      const members = querySnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Member));
-      localStorage.setItem('lapib_local_members', JSON.stringify(members));
-      return members;
-    } catch (e) {
-      return this.getLocalFallback('lapib_local_members');
+      console.error("Erro cloud:", e);
     }
   }
 
   static async saveMember(member: Member): Promise<void> {
-    this.saveLocalFallback('lapib_local_members', member);
     if (!isFirebaseConfigured) return;
     try {
       let finalPhoto = member.photoUrl;
@@ -109,45 +122,17 @@ class CloudService {
       }
       await setDoc(doc(db, "members", member.id), { ...member, photoUrl: finalPhoto });
     } catch (e) {
-      console.error("Erro ao salvar membro na nuvem:", e);
+      console.error("Erro cloud:", e);
     }
   }
 
   static async updateMemberAccess(memberId: string, status: boolean): Promise<void> {
-    const local = this.getLocalFallback('lapib_local_members');
-    const idx = local.findIndex((m: any) => m.id === memberId);
-    if (idx >= 0) {
-      local[idx].acessoLiberado = status;
-      localStorage.setItem('lapib_local_members', JSON.stringify(local));
-    }
-
     if (!isFirebaseConfigured) return;
-    try {
-      const memberRef = doc(db, "members", memberId);
-      await updateDoc(memberRef, { acessoLiberado: status });
-    } catch (e) {
-      console.error("Erro ao atualizar acesso na nuvem:", e);
-    }
-  }
-
-  /**
-   * PROJETOS
-   */
-  static async getCloudProjects(): Promise<Project[]> {
-    if (!isFirebaseConfigured) return this.getLocalFallback('lapib_local_projects');
-    try {
-      const q = query(collection(db, "projects"), orderBy("startDate", "desc"));
-      const querySnapshot = await getDocs(q);
-      const projects = querySnapshot.docs.map(doc => doc.data() as Project);
-      localStorage.setItem('lapib_local_projects', JSON.stringify(projects));
-      return projects;
-    } catch (e) {
-      return this.getLocalFallback('lapib_local_projects');
-    }
+    const memberRef = doc(db, "members", memberId);
+    await updateDoc(memberRef, { acessoLiberado: status });
   }
 
   static async saveProject(project: Project): Promise<void> {
-    this.saveLocalFallback('lapib_local_projects', project);
     if (!isFirebaseConfigured) return;
     try {
       let finalImg = project.imageUrl;
@@ -156,27 +141,11 @@ class CloudService {
       }
       await setDoc(doc(db, "projects", project.id), { ...project, imageUrl: finalImg });
     } catch (e) {
-      console.error("Erro ao salvar projeto na nuvem:", e);
-    }
-  }
-
-  /**
-   * EVENTOS
-   */
-  static async getCloudEvents(): Promise<CalendarEvent[]> {
-    if (!isFirebaseConfigured) return this.getLocalFallback('lapib_local_events');
-    try {
-      const querySnapshot = await getDocs(collection(db, "events"));
-      const events = querySnapshot.docs.map(doc => doc.data() as CalendarEvent);
-      localStorage.setItem('lapib_local_events', JSON.stringify(events));
-      return events;
-    } catch (e) {
-      return this.getLocalFallback('lapib_local_events');
+      console.error("Erro cloud:", e);
     }
   }
 
   static async saveEvent(event: CalendarEvent): Promise<void> {
-    this.saveLocalFallback('lapib_local_events', event);
     if (!isFirebaseConfigured) return;
     try {
       let finalImg = event.imageUrl;
@@ -185,33 +154,13 @@ class CloudService {
       }
       await setDoc(doc(db, "events", event.id), { ...event, imageUrl: finalImg });
     } catch (e) {
-      console.error("Erro ao salvar evento na nuvem:", e);
-    }
-  }
-
-  /**
-   * LABORATÓRIOS
-   */
-  static async getCloudLabs(): Promise<Lab[]> {
-    if (!isFirebaseConfigured) return this.getLocalFallback('lapib_local_labs');
-    try {
-      const querySnapshot = await getDocs(collection(db, "labs"));
-      const labs = querySnapshot.docs.map(doc => doc.data() as Lab);
-      localStorage.setItem('lapib_local_labs', JSON.stringify(labs));
-      return labs;
-    } catch (e) {
-      return this.getLocalFallback('lapib_local_labs');
+      console.error("Erro cloud:", e);
     }
   }
 
   static async saveLab(lab: Lab): Promise<void> {
-    this.saveLocalFallback('lapib_local_labs', lab);
     if (!isFirebaseConfigured) return;
-    try {
-      await setDoc(doc(db, "labs", lab.id), lab);
-    } catch (e) {
-      console.error("Erro ao salvar laboratório na nuvem:", e);
-    }
+    await setDoc(doc(db, "labs", lab.id), lab);
   }
 }
 

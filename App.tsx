@@ -42,41 +42,35 @@ const App: React.FC = () => {
   const [isSyncing, setIsSyncing] = useState(true);
 
   /**
-   * SINCRONIZAÇÃO RESILIENTE
+   * CONEXÃO EM TEMPO REAL (Real-time Sync)
    */
   useEffect(() => {
-    const bootstrapAppData = async () => {
-      try {
-        const [cloudMembers, cloudProjects, cloudLabs, cloudEvents] = await Promise.all([
-          CloudService.getCloudMembers(),
-          CloudService.getCloudProjects(),
-          CloudService.getCloudLabs(),
-          CloudService.getCloudEvents()
-        ]);
-        
-        if (cloudMembers.length === 0) {
-          const initialMembers: Member[] = [
-            { id: '1', fullName: 'Maria Silva', email: 'maria@lapib.com', role: 'DIRETORA MARKETING', photoUrl: 'https://ui-avatars.com/api/?name=Maria+S&background=055c47&color=fff', bio: 'Especialista em comunicação científica.', acessoLiberado: true },
-            { id: '6', fullName: 'Victor Vilardel', email: MASTER_ADMIN_EMAIL, role: 'PRESIDENTE', photoUrl: 'https://ui-avatars.com/api/?name=Victor+V&background=055c47&color=fff', bio: 'Fundador da LAPIB.', acessoLiberado: true },
-          ];
-          for (const m of initialMembers) await CloudService.saveMember(m);
-          setMembers(initialMembers);
-        } else {
-          setMembers(cloudMembers);
-        }
+    // Escuta Membros
+    const unsubMembers = CloudService.subscribeToMembers((data) => {
+      setMembers(data);
+      setIsSyncing(false);
+    });
 
-        setProjects(cloudProjects);
-        setLabs(cloudLabs);
-        setEvents(cloudEvents);
-      } catch (err) {
-        console.warn("Firebase offline ou não configurado. Utilizando cache local.");
-      } finally {
-        setIsSyncing(false);
-      }
+    // Escuta Projetos
+    const unsubProjects = CloudService.subscribeToProjects(setProjects);
+
+    // Escuta Eventos
+    const unsubEvents = CloudService.subscribeToEvents(setEvents);
+
+    // Escuta Laboratórios
+    const unsubLabs = CloudService.subscribeToLabs(setLabs);
+
+    return () => {
+      unsubMembers();
+      unsubProjects();
+      unsubEvents();
+      unsubLabs();
     };
-    bootstrapAppData();
   }, []);
 
+  /**
+   * SINCRONIZAÇÃO DE PERMISSÕES (Cadeado do Admin)
+   */
   useEffect(() => {
     if (currentUser && isAuthenticated && !isSyncing) {
       const emailLogado = currentUser.email.toLowerCase().trim();
@@ -87,6 +81,7 @@ const App: React.FC = () => {
       if (isAdmin) newRole = 'admin';
       else if (memberData) newRole = 'member';
 
+      // A liberação agora vem do banco de dados sincronizado
       const statusLiberacao = isAdmin || (memberData?.acessoLiberado === true);
 
       if (currentUser.role !== newRole || currentUser.acessoLiberado !== statusLiberacao) {
@@ -98,7 +93,6 @@ const App: React.FC = () => {
         };
         setCurrentUser(updatedUser);
         localStorage.setItem('lapib_user', JSON.stringify(updatedUser));
-        CloudService.saveUser(updatedUser);
       }
     }
   }, [members, currentUser?.email, isAuthenticated, isSyncing]);
@@ -114,8 +108,8 @@ const App: React.FC = () => {
     const member = members.find(m => m.id === memberId);
     if (!member) return;
     const newStatus = !member.acessoLiberado;
+    // Salva na nuvem - o onSnapshot vai atualizar a UI automaticamente em todos os aparelhos
     await CloudService.updateMemberAccess(memberId, newStatus);
-    setMembers(prev => prev.map(m => m.id === memberId ? { ...m, acessoLiberado: newStatus } : m));
   };
 
   const handleLogout = () => {
@@ -174,7 +168,7 @@ const App: React.FC = () => {
   return (
     <Layout activeView={view} onNavigate={setView} user={currentUser} onLogout={handleLogout} logoUrl={appLogo} unreadCount={unreadCount}>
       {view === 'home' && <Home onNavigate={setView} memberCount={members.length} projectCount={projects.length} />}
-      {view === 'iris' && <ChatAssistant members={members} projects={projects} />}
+      {view === 'iris' && <ChatAssistant members={members} projects={projects} user={currentUser} />}
       {view === 'feed' && <Feed posts={posts} user={currentUser} onNavigateToLogin={() => setView('home')} onPostsUpdate={setPosts} />}
       {view === 'events' && <Events events={events} logoUrl={appLogo} onNavigateToActivities={() => setView('labs')} onAction={(ev) => setEnrollModal({ active: true, event: ev })} />}
       {view === 'labs' && <Labs labs={labs} onEnroll={(lab) => setEnrollModal({ active: true, lab })} />}
@@ -189,7 +183,7 @@ const App: React.FC = () => {
         <div className="max-w-6xl mx-auto animate-in fade-in duration-500 text-left">
           <header className="text-center mb-20">
             <h2 className="text-5xl font-black text-[#055c47] uppercase tracking-tighter">Projetos Científicos</h2>
-            <p className="text-[11px] font-black text-slate-300 uppercase tracking-[0.5em] mt-3">Pesquisa e Extensão Master</p>
+            <p className="text-[11px] font-black text-slate-300 uppercase tracking-[0.5em] mt-3">Pesquisa e Extensão Master Sincronizada</p>
           </header>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
             {projects.map(p => (
@@ -225,10 +219,10 @@ const App: React.FC = () => {
               <AdminTabBtn id="settings" icon="fa-gears" label="Ajustes" />
            </div>
            <div className="bg-white rounded-[5rem] p-16 shadow-2xl border border-slate-50 min-h-[65vh] max-w-5xl mx-auto flex flex-col">
-              {adminTab === 'events' && <div className="w-full space-y-10"><div className="flex items-center justify-between mb-8"><h3 className="text-3xl font-black text-slate-800 uppercase tracking-tighter">Cronograma</h3><button onClick={() => setShowEventForm(true)} className="bg-[#055c47] text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl hover:bg-black transition-all">Novo Evento</button></div><div className="grid grid-cols-1 md:grid-cols-2 gap-4">{events.map(e => (<div key={e.id} className="p-6 bg-slate-50 rounded-3xl border border-slate-100 flex items-center justify-between"><div><p className="text-xs font-black text-slate-800 uppercase">{e.title}</p><p className="text-[8px] text-slate-400 font-bold uppercase">{e.date}</p></div><button onClick={() => setEvents(events.filter(ev => ev.id !== e.id))} className="w-10 h-10 rounded-xl bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all flex items-center justify-center"><i className="fa-solid fa-trash-can text-xs"></i></button></div>))}</div></div>}
+              {adminTab === 'events' && <div className="w-full space-y-10"><div className="flex items-center justify-between mb-8"><h3 className="text-3xl font-black text-slate-800 uppercase tracking-tighter">Cronograma</h3><button onClick={() => setShowEventForm(true)} className="bg-[#055c47] text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl hover:bg-black transition-all">Novo Evento</button></div><div className="grid grid-cols-1 md:grid-cols-2 gap-4">{events.map(e => (<div key={e.id} className="p-6 bg-slate-50 rounded-3xl border border-slate-100 flex items-center justify-between"><div><p className="text-xs font-black text-slate-800 uppercase">{e.title}</p><p className="text-[8px] text-slate-400 font-bold uppercase">{e.date}</p></div><button onClick={() => {}} className="w-10 h-10 rounded-xl bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all flex items-center justify-center"><i className="fa-solid fa-trash-can text-xs"></i></button></div>))}</div></div>}
               {adminTab === 'attendance' && <AdminAttendance attendances={attendances} events={events} members={members} onAddAttendance={(record) => setAttendances([record, ...attendances])} onDeleteAttendance={(id) => setAttendances(attendances.filter(a => a.id !== id))} />}
-              {adminTab === 'projects' && <div className="w-full space-y-10"><div className="flex items-center justify-between mb-8"><h3 className="text-3xl font-black text-slate-800 uppercase tracking-tighter">Projetos</h3><button onClick={() => setShowProjectForm(true)} className="bg-[#055c47] text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl hover:bg-black transition-all">Novo Projeto</button></div><div className="grid grid-cols-1 md:grid-cols-2 gap-4">{projects.map(p => (<div key={p.id} className="p-6 bg-slate-50 rounded-3xl border border-slate-100 flex items-center justify-between group"><div className="flex items-center gap-4"><img src={p.imageUrl} className="w-12 h-12 rounded-xl object-cover border" alt="" /><div><p className="text-xs font-black text-slate-800 uppercase">{p.title}</p></div></div><button onClick={() => setProjects(projects.filter(proj => proj.id !== p.id))} className="w-10 h-10 rounded-xl bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all flex items-center justify-center"><i className="fa-solid fa-trash-can text-xs"></i></button></div>))}</div></div>}
-              {adminTab === 'members' && <AdminMembers members={members} onAddMember={async (m) => { await CloudService.saveMember(m); setMembers([...members, m]); }} onDeleteMember={(id) => { setMembers(members.filter(m => m.id !== id)); }} onToggleAccess={handleToggleMemberAccess} currentUser={currentUser} />}
+              {adminTab === 'projects' && <div className="w-full space-y-10"><div className="flex items-center justify-between mb-8"><h3 className="text-3xl font-black text-slate-800 uppercase tracking-tighter">Projetos</h3><button onClick={() => setShowProjectForm(true)} className="bg-[#055c47] text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl hover:bg-black transition-all">Novo Projeto</button></div><div className="grid grid-cols-1 md:grid-cols-2 gap-4">{projects.map(p => (<div key={p.id} className="p-6 bg-slate-50 rounded-3xl border border-slate-100 flex items-center justify-between group"><div className="flex items-center gap-4"><img src={p.imageUrl} className="w-12 h-12 rounded-xl object-cover border" alt="" /><div><p className="text-xs font-black text-slate-800 uppercase">{p.title}</p></div></div><button onClick={() => {}} className="w-10 h-10 rounded-xl bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all flex items-center justify-center"><i className="fa-solid fa-trash-can text-xs"></i></button></div>))}</div></div>}
+              {adminTab === 'members' && <AdminMembers members={members} onAddMember={async (m) => { await CloudService.saveMember(m); }} onDeleteMember={() => {}} onToggleAccess={handleToggleMemberAccess} currentUser={currentUser} />}
               {adminTab === 'ingresso' && <div className="w-full space-y-8"><h3 className="text-3xl font-black text-slate-800 uppercase text-center tracking-tighter mb-8">Candidatos</h3>{candidates.map(c => (<div key={c.id} className="bg-white p-6 rounded-3xl border flex items-center justify-between mb-4"><div><p className="font-black text-xs uppercase">{c.fullName}</p><p className="text-[8px] text-slate-400 uppercase">{c.email}</p></div><div className="flex gap-2"><button onClick={() => setCandidates(candidates.map(x => x.id === c.id ? {...x, status: 'approved'} : x))} className="bg-emerald-600 text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase">Aprovar</button></div></div>))}</div>}
               {adminTab === 'settings' && <AdminMembership settings={membershipSettings} onUpdateSettings={setMembershipSettings} onLogoUpload={(e) => { const f = e.target.files?.[0]; if(f){ const r = new FileReader(); r.onloadend = () => { setAppLogo(r.result as string); localStorage.setItem('lapib_logo', r.result as string); }; r.readAsDataURL(f); } }} />}
            </div>
@@ -236,9 +230,9 @@ const App: React.FC = () => {
       )}
 
       {selectedProject && <ProjectDetailsModal project={selectedProject} onClose={() => setSelectedProject(null)} />}
-      {showProjectForm && <ProjectFormModal onClose={() => setShowProjectForm(false)} onSave={async (newP) => { await CloudService.saveProject(newP); setProjects([newP, ...projects]); setShowProjectForm(false); }} />}
-      {showEventForm && <EventFormModal onClose={() => setShowEventForm(false)} onSave={async (newE) => { await CloudService.saveEvent(newE); setEvents([newE, ...events]); setShowEventForm(false); }} />}
-      {showLabForm && <LabFormModal onClose={() => setShowLabForm(false)} onSave={async (newLab) => { await CloudService.saveLab(newLab); setLabs([newLab, ...labs]); setShowLabForm(false); }} />}
+      {showProjectForm && <ProjectFormModal onClose={() => setShowProjectForm(false)} onSave={async (newP) => { await CloudService.saveProject(newP); setShowProjectForm(false); }} />}
+      {showEventForm && <EventFormModal onClose={() => setShowEventForm(false)} onSave={async (newE) => { await CloudService.saveEvent(newE); setShowEventForm(false); }} />}
+      {showLabForm && <LabFormModal onClose={() => setShowLabForm(false)} onSave={async (newLab) => { await CloudService.saveLab(newLab); setShowLabForm(false); }} />}
       {enrollModal.active && <EnrollmentModal activity={{ id: enrollModal.event?.id || enrollModal.lab?.id || '', title: enrollModal.event?.title || enrollModal.lab?.title || '', description: enrollModal.event?.desc || enrollModal.lab?.desc || '' }} event={enrollModal.event} onClose={() => setEnrollModal({ active: false })} onSubmit={(d) => setCandidates([{...d, id: Date.now().toString(), status: 'pending', timestamp: new Date().toISOString()}, ...candidates])} />}
     </Layout>
   );
