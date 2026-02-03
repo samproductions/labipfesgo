@@ -21,7 +21,7 @@ import ProjectDetailsModal from './ProjectDetailsModal';
 import ProjectFormModal from './ProjectFormModal';
 import EventFormModal from './EventFormModal';
 import LabFormModal from './LabFormModal';
-import Auth from './Auth'; // Novo Componente
+import Auth from './Auth';
 import { LEAGUE_INFO, LAPIB_LOGO_BASE64 } from './constants';
 
 const MASTER_ADMIN_EMAIL = 'lapibfesgo@gmail.com';
@@ -52,27 +52,35 @@ const App: React.FC = () => {
     ];
   });
 
-  // --- LÓGICA DE CLASSIFICAÇÃO DE ACESSO ---
+  // --- LÓGICA DE IDENTIFICAÇÃO AUTOMÁTICA DE ACESSO ---
+  // Esta função garante que, se um administrador adicionar um e-mail de membro, 
+  // o usuário correspondente ganhará acesso automaticamente ao "Espaço Acadêmico" na próxima atualização.
   useEffect(() => {
     if (currentUser) {
-      const isMember = members.some(m => m.email.toLowerCase() === currentUser.email.toLowerCase());
-      const isAdmin = currentUser.email.toLowerCase() === MASTER_ADMIN_EMAIL;
+      const emailLower = currentUser.email.toLowerCase();
+      const isMember = members.some(m => m.email.toLowerCase() === emailLower);
+      const isAdmin = emailLower === MASTER_ADMIN_EMAIL;
       
       let newRole: UserProfile['role'] = 'student';
       if (isAdmin) newRole = 'admin';
       else if (isMember) newRole = 'member';
 
       if (currentUser.role !== newRole) {
-        const updatedUser = { ...currentUser, role: newRole, status: isMember || isAdmin ? 'ativo' : 'inativo' } as UserProfile;
+        const updatedUser = { 
+          ...currentUser, 
+          role: newRole, 
+          status: isMember || isAdmin ? 'ativo' : 'inativo' 
+        } as UserProfile;
         setCurrentUser(updatedUser);
+        localStorage.setItem('lapib_user', JSON.stringify(updatedUser));
       }
     }
   }, [members, currentUser?.email]);
 
   const handleLogin = (user: UserProfile) => {
-    // Verificar se o e-mail logado está na lista de membros oficiais
-    const isMember = members.some(m => m.email.toLowerCase() === user.email.toLowerCase());
-    const isAdmin = user.email.toLowerCase() === MASTER_ADMIN_EMAIL;
+    const emailLower = user.email.toLowerCase();
+    const isMember = members.some(m => m.email.toLowerCase() === emailLower);
+    const isAdmin = emailLower === MASTER_ADMIN_EMAIL;
     
     const loggedUser: UserProfile = {
       ...user,
@@ -94,6 +102,7 @@ const App: React.FC = () => {
     setView('home');
   };
 
+  // --- PERSISTENCE OF STATE DATA ---
   const [projects, setProjects] = useState<Project[]>(() => {
     const saved = localStorage.getItem('lapib_projects');
     return saved ? JSON.parse(saved) : [
@@ -268,6 +277,7 @@ const App: React.FC = () => {
     }
   };
 
+  // Se não estiver autenticado, exibe a tela de Auth (Login/Cadastro)
   if (!isAuthenticated || !currentUser) {
     return <Auth onLogin={handleLogin} />;
   }

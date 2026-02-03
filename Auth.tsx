@@ -20,8 +20,8 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Regra Administrativa Master
-    if (formData.email === 'lapibfesgo@gmail.com' && formData.password === '21140712') {
+    // Regra Administrativa Master - Vitalícia
+    if (formData.email.toLowerCase() === 'lapibfesgo@gmail.com' && formData.password === '21140712') {
       const adminUser: UserProfile = {
         id: 'admin-master',
         fullName: 'Administrador Master',
@@ -35,9 +35,9 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
     }
 
     if (isLogin) {
-      // Simulação de Login via LocalStorage
+      // Autenticação de Usuário Comum
       const users = JSON.parse(localStorage.getItem('lapib_registered_users') || '[]');
-      const user = users.find((u: any) => u.email === formData.email && u.password === formData.password);
+      const user = users.find((u: any) => u.email.toLowerCase() === formData.email.toLowerCase() && u.password === formData.password);
       
       if (user) {
         onLogin(user);
@@ -45,27 +45,32 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
         alert("Credenciais inválidas. Verifique seu e-mail e senha.");
       }
     } else {
-      // Cadastro de Novo Usuário
+      // Cadastro de Novo Perfil Acadêmico
+      if (!formData.fullName || !formData.email || !formData.password || !formData.registrationId || !formData.cpf) {
+        alert("Todos os campos de registro são obrigatórios.");
+        return;
+      }
+
       const newUser: UserProfile = {
         id: Date.now().toString(),
         fullName: formData.fullName,
         email: formData.email,
         password: formData.password,
         photoUrl: `https://ui-avatars.com/api/?name=${formData.fullName.replace(' ', '+')}&background=f1f5f9&color=055c47`,
-        role: 'student',
+        role: 'student', // Inicia como estudante, App.tsx mudará se constar na lista de membros
         cpf: formData.cpf,
         registrationId: formData.registrationId,
         status: 'inativo'
       };
 
       const users = JSON.parse(localStorage.getItem('lapib_registered_users') || '[]');
-      if (users.find((u: any) => u.email === formData.email)) {
-        alert("E-mail já cadastrado.");
+      if (users.find((u: any) => u.email.toLowerCase() === formData.email.toLowerCase())) {
+        alert("E-mail já cadastrado no sistema.");
         return;
       }
 
       localStorage.setItem('lapib_registered_users', JSON.stringify([...users, newUser]));
-      alert("Cadastro realizado com sucesso! Agora você pode fazer login.");
+      alert("Cadastro acadêmico realizado! Você já pode realizar o acesso.");
       setIsLogin(true);
     }
   };
@@ -108,6 +113,7 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
                 <input 
                   required
                   type="text"
+                  placeholder="Seu nome acadêmico"
                   className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-xs font-bold outline-none focus:ring-4 focus:ring-[#055c47]/10 focus:border-[#055c47] transition-all"
                   value={formData.fullName}
                   onChange={e => setFormData({...formData, fullName: e.target.value})}
@@ -120,6 +126,7 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
               <input 
                 required
                 type="email"
+                placeholder="academico@exemplo.com"
                 className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-xs font-bold outline-none focus:ring-4 focus:ring-[#055c47]/10 focus:border-[#055c47] transition-all"
                 value={formData.email}
                 onChange={e => setFormData({...formData, email: e.target.value})}
@@ -131,6 +138,7 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
               <input 
                 required
                 type="password"
+                placeholder="••••••••"
                 className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-xs font-bold outline-none focus:ring-4 focus:ring-[#055c47]/10 focus:border-[#055c47] transition-all"
                 value={formData.password}
                 onChange={e => setFormData({...formData, password: e.target.value})}
@@ -144,6 +152,7 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
                   <input 
                     required
                     type="text"
+                    placeholder="202X.XXXX"
                     className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-xs font-bold outline-none focus:ring-4 focus:ring-[#055c47]/10 focus:border-[#055c47] transition-all"
                     value={formData.registrationId}
                     onChange={e => setFormData({...formData, registrationId: e.target.value})}
@@ -154,6 +163,7 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
                   <input 
                     required
                     type="text"
+                    placeholder="000.000.000-00"
                     className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-xs font-bold outline-none focus:ring-4 focus:ring-[#055c47]/10 focus:border-[#055c47] transition-all"
                     value={formData.cpf}
                     onChange={e => setFormData({...formData, cpf: e.target.value})}
