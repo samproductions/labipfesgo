@@ -53,43 +53,45 @@ const App: React.FC = () => {
   });
 
   // --- LÓGICA DE IDENTIFICAÇÃO AUTOMÁTICA E PERMISSÃO MANUAL ---
+  // CORREÇÃO: Normalização rigorosa de e-mails para garantir o vínculo
   useEffect(() => {
-    if (currentUser) {
-      const emailLower = currentUser.email.toLowerCase();
-      const memberData = members.find(m => m.email.toLowerCase() === emailLower);
-      const isAdmin = emailLower === MASTER_ADMIN_EMAIL;
+    if (currentUser && isAuthenticated) {
+      const emailLogado = currentUser.email.toLowerCase().trim();
+      
+      // Localiza o membro na lista oficial usando normalização
+      const memberData = members.find(m => m.email.toLowerCase().trim() === emailLogado);
+      const isAdmin = emailLogado === MASTER_ADMIN_EMAIL.toLowerCase().trim();
       
       let newRole: UserProfile['role'] = 'student';
       if (isAdmin) newRole = 'admin';
       else if (memberData) newRole = 'member';
 
-      // Verifica se houve mudança de cargo ou de permissão de acesso
-      const shouldUpdate = 
-        currentUser.role !== newRole || 
-        currentUser.acessoLiberado !== (memberData?.acessoLiberado || isAdmin);
+      // Status de liberação das abas restritas
+      const statusLiberacao = isAdmin || (memberData?.acessoLiberado === true);
 
-      if (shouldUpdate) {
-        const updatedUser = { 
+      // Só atualiza o estado se houver mudança real para evitar loops infinitos
+      if (currentUser.role !== newRole || currentUser.acessoLiberado !== statusLiberacao) {
+        const updatedUser: UserProfile = { 
           ...currentUser, 
           role: newRole, 
-          status: memberData || isAdmin ? 'ativo' : 'inativo',
-          acessoLiberado: isAdmin || (memberData?.acessoLiberado === true)
-        } as UserProfile;
+          status: (memberData || isAdmin) ? 'ativo' : 'inativo',
+          acessoLiberado: statusLiberacao
+        };
         setCurrentUser(updatedUser);
         localStorage.setItem('lapib_user', JSON.stringify(updatedUser));
       }
     }
-  }, [members, currentUser?.email]);
+  }, [members, currentUser?.email, isAuthenticated]);
 
   const handleLogin = (user: UserProfile) => {
-    const emailLower = user.email.toLowerCase();
-    const memberData = members.find(m => m.email.toLowerCase() === emailLower);
-    const isAdmin = emailLower === MASTER_ADMIN_EMAIL;
+    const emailLogin = user.email.toLowerCase().trim();
+    const memberData = members.find(m => m.email.toLowerCase().trim() === emailLogin);
+    const isAdmin = emailLogin === MASTER_ADMIN_EMAIL.toLowerCase().trim();
     
     const loggedUser: UserProfile = {
       ...user,
       role: isAdmin ? 'admin' : (memberData ? 'member' : 'student'),
-      status: memberData || isAdmin ? 'ativo' : 'inativo',
+      status: (memberData || isAdmin) ? 'ativo' : 'inativo',
       acessoLiberado: isAdmin || (memberData?.acessoLiberado === true)
     };
 
@@ -113,6 +115,7 @@ const App: React.FC = () => {
     setView('home');
   };
 
+  // --- PERSISTENCE OF STATE DATA ---
   const [projects, setProjects] = useState<Project[]>(() => {
     const saved = localStorage.getItem('lapib_projects');
     return saved ? JSON.parse(saved) : [

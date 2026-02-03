@@ -20,12 +20,15 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Normalização imediata dos dados de entrada
+    const normalizedEmail = formData.email.toLowerCase().trim();
+
     // Regra Administrativa Master - Vitalícia
-    if (formData.email.toLowerCase() === 'lapibfesgo@gmail.com' && formData.password === '21140712') {
+    if (normalizedEmail === 'lapibfesgo@gmail.com' && formData.password === '21140712') {
       const adminUser: UserProfile = {
         id: 'admin-master',
         fullName: 'Administrador Master',
-        email: formData.email,
+        email: normalizedEmail,
         photoUrl: 'https://ui-avatars.com/api/?name=Admin+Master&background=055c47&color=fff',
         role: 'admin',
         status: 'ativo'
@@ -35,18 +38,18 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
     }
 
     if (isLogin) {
-      // Autenticação de Usuário Comum
+      // Autenticação de Usuário Comum com Normalização de E-mail
       const users = JSON.parse(localStorage.getItem('lapib_registered_users') || '[]');
-      const user = users.find((u: any) => u.email.toLowerCase() === formData.email.toLowerCase() && u.password === formData.password);
+      const user = users.find((u: any) => u.email.toLowerCase().trim() === normalizedEmail && u.password === formData.password);
       
       if (user) {
         onLogin(user);
       } else {
-        alert("Credenciais inválidas. Verifique seu e-mail e senha.");
+        alert("Credenciais inválidas. Verifique seu e-mail e senha. Certifique-se de não haver espaços extras.");
       }
     } else {
       // Cadastro de Novo Perfil Acadêmico
-      if (!formData.fullName || !formData.email || !formData.password || !formData.registrationId || !formData.cpf) {
+      if (!formData.fullName || !normalizedEmail || !formData.password || !formData.registrationId || !formData.cpf) {
         alert("Todos os campos de registro são obrigatórios.");
         return;
       }
@@ -54,23 +57,23 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
       const newUser: UserProfile = {
         id: Date.now().toString(),
         fullName: formData.fullName,
-        email: formData.email,
+        email: normalizedEmail, // Armazena já normalizado
         password: formData.password,
         photoUrl: `https://ui-avatars.com/api/?name=${formData.fullName.replace(' ', '+')}&background=f1f5f9&color=055c47`,
-        role: 'student', // Inicia como estudante, App.tsx mudará se constar na lista de membros
+        role: 'student',
         cpf: formData.cpf,
         registrationId: formData.registrationId,
         status: 'inativo'
       };
 
       const users = JSON.parse(localStorage.getItem('lapib_registered_users') || '[]');
-      if (users.find((u: any) => u.email.toLowerCase() === formData.email.toLowerCase())) {
-        alert("E-mail já cadastrado no sistema.");
+      if (users.find((u: any) => u.email.toLowerCase().trim() === normalizedEmail)) {
+        alert("Este e-mail já está vinculado a um perfil acadêmico.");
         return;
       }
 
       localStorage.setItem('lapib_registered_users', JSON.stringify([...users, newUser]));
-      alert("Cadastro acadêmico realizado! Você já pode realizar o acesso.");
+      alert("Perfil acadêmico criado com sucesso! Realize o acesso agora.");
       setIsLogin(true);
     }
   };
