@@ -35,7 +35,6 @@ const App: React.FC = () => {
     return saved ? JSON.parse(saved) : null;
   });
 
-  // Estados sincronizados com a nuvem (Firebase)
   const [members, setMembers] = useState<Member[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [labs, setLabs] = useState<Lab[]>([]);
@@ -43,7 +42,7 @@ const App: React.FC = () => {
   const [isSyncing, setIsSyncing] = useState(true);
 
   /**
-   * SINCRONIZAÇÃO COMPLETA FIREBASE
+   * SINCRONIZAÇÃO RESILIENTE
    */
   useEffect(() => {
     const bootstrapAppData = async () => {
@@ -55,7 +54,6 @@ const App: React.FC = () => {
           CloudService.getCloudEvents()
         ]);
         
-        // Seed inicial se o banco estiver vazio (Primeiro Acesso)
         if (cloudMembers.length === 0) {
           const initialMembers: Member[] = [
             { id: '1', fullName: 'Maria Silva', email: 'maria@lapib.com', role: 'DIRETORA MARKETING', photoUrl: 'https://ui-avatars.com/api/?name=Maria+S&background=055c47&color=fff', bio: 'Especialista em comunicação científica.', acessoLiberado: true },
@@ -71,7 +69,7 @@ const App: React.FC = () => {
         setLabs(cloudLabs);
         setEvents(cloudEvents);
       } catch (err) {
-        console.error("Erro Crítico na Sincronização Firebase:", err);
+        console.warn("Firebase offline ou não configurado. Utilizando cache local.");
       } finally {
         setIsSyncing(false);
       }
@@ -79,7 +77,6 @@ const App: React.FC = () => {
     bootstrapAppData();
   }, []);
 
-  // Monitor de Identificação e Permissões (Real-time Sync)
   useEffect(() => {
     if (currentUser && isAuthenticated && !isSyncing) {
       const emailLogado = currentUser.email.toLowerCase().trim();
@@ -101,7 +98,7 @@ const App: React.FC = () => {
         };
         setCurrentUser(updatedUser);
         localStorage.setItem('lapib_user', JSON.stringify(updatedUser));
-        CloudService.saveUser(updatedUser); // Persiste na nuvem
+        CloudService.saveUser(updatedUser);
       }
     }
   }, [members, currentUser?.email, isAuthenticated, isSyncing]);
@@ -129,7 +126,6 @@ const App: React.FC = () => {
     setView('home');
   };
 
-  // Estados locais para dados que ainda não migramos totalmente para cloudService individualmente
   const [attendances, setAttendances] = useState<AttendanceRecord[]>(() => JSON.parse(localStorage.getItem('lapib_attendance') || '[]'));
   const [directMessages, setDirectMessages] = useState<DirectMessage[]>(() => JSON.parse(localStorage.getItem('lapib_direct_messages') || '[]'));
   const [candidates, setCandidates] = useState<Candidate[]>(() => JSON.parse(localStorage.getItem('lapib_candidates') || '[]'));
@@ -145,7 +141,6 @@ const App: React.FC = () => {
     };
   });
 
-  // UI STATE
   const [view, setView] = useState<ViewState>('home');
   const [adminTab, setAdminTab] = useState<AdminTab>('labs');
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
@@ -194,7 +189,7 @@ const App: React.FC = () => {
         <div className="max-w-6xl mx-auto animate-in fade-in duration-500 text-left">
           <header className="text-center mb-20">
             <h2 className="text-5xl font-black text-[#055c47] uppercase tracking-tighter">Projetos Científicos</h2>
-            <p className="text-[11px] font-black text-slate-300 uppercase tracking-[0.5em] mt-3">Pesquisa e Extensão em Nuvem (Firebase)</p>
+            <p className="text-[11px] font-black text-slate-300 uppercase tracking-[0.5em] mt-3">Pesquisa e Extensão Master</p>
           </header>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
             {projects.map(p => (
