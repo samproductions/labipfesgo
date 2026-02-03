@@ -43,33 +43,37 @@ const App: React.FC = () => {
   const [members, setMembers] = useState<Member[]>(() => {
     const saved = localStorage.getItem('lapib_members');
     return saved ? JSON.parse(saved) : [
-      { id: '1', fullName: 'Maria Silva', email: 'maria@lapib.com', role: 'DIRETORA MARKETING', photoUrl: 'https://ui-avatars.com/api/?name=Maria+S&background=055c47&color=fff', bio: 'Especialista em comunicação científica e branding laboratorial.' },
-      { id: '2', fullName: 'Mateus Oliveira', email: 'mateus@lapib.com', role: 'MEMBRO MARKETING', photoUrl: 'https://ui-avatars.com/api/?name=Mateus+O&background=055c47&color=fff' },
-      { id: '3', fullName: 'Roberio Santos', email: 'roberio@lapib.com', role: 'DIRETOR OPERAÇÕES', photoUrl: 'https://ui-avatars.com/api/?name=Roberio+S&background=055c47&color=fff' },
-      { id: '4', fullName: 'Murilo Souza', email: 'murilo@lapib.com', role: 'MEMBRO OPERAÇÕES', photoUrl: 'https://ui-avatars.com/api/?name=Murilo+S&background=055c47&color=fff' },
-      { id: '5', fullName: 'Christhally Lima', email: 'chris@lapib.com', role: 'DIRETORA CIENTÍFICA', photoUrl: 'https://ui-avatars.com/api/?name=Chris+L&background=055c47&color=fff', bio: 'Mestre em Patologia Experimental com foco em marcadores tumorais.' },
-      { id: '6', fullName: 'Victor Vilardel', email: MASTER_ADMIN_EMAIL, role: 'PRESIDENTE', photoUrl: 'https://ui-avatars.com/api/?name=Victor+V&background=055c47&color=fff', bio: 'Fundador da LAPIB, focado em inovação diagnóstica e gestão acadêmica.' },
+      { id: '1', fullName: 'Maria Silva', email: 'maria@lapib.com', role: 'DIRETORA MARKETING', photoUrl: 'https://ui-avatars.com/api/?name=Maria+S&background=055c47&color=fff', bio: 'Especialista em comunicação científica e branding laboratorial.', acessoLiberado: true },
+      { id: '2', fullName: 'Mateus Oliveira', email: 'mateus@lapib.com', role: 'MEMBRO MARKETING', photoUrl: 'https://ui-avatars.com/api/?name=Mateus+O&background=055c47&color=fff', acessoLiberado: false },
+      { id: '3', fullName: 'Roberio Santos', email: 'roberio@lapib.com', role: 'DIRETOR OPERAÇÕES', photoUrl: 'https://ui-avatars.com/api/?name=Roberio+S&background=055c47&color=fff', acessoLiberado: true },
+      { id: '4', fullName: 'Murilo Souza', email: 'murilo@lapib.com', role: 'MEMBRO OPERAÇÕES', photoUrl: 'https://ui-avatars.com/api/?name=Murilo+S&background=055c47&color=fff', acessoLiberado: false },
+      { id: '5', fullName: 'Christhally Lima', email: 'chris@lapib.com', role: 'DIRETORA CIENTÍFICA', photoUrl: 'https://ui-avatars.com/api/?name=Chris+L&background=055c47&color=fff', bio: 'Mestre em Patologia Experimental com foco em marcadores tumorais.', acessoLiberado: true },
+      { id: '6', fullName: 'Victor Vilardel', email: MASTER_ADMIN_EMAIL, role: 'PRESIDENTE', photoUrl: 'https://ui-avatars.com/api/?name=Victor+V&background=055c47&color=fff', bio: 'Fundador da LAPIB, focado em inovação diagnóstica e gestão acadêmica.', acessoLiberado: true },
     ];
   });
 
-  // --- LÓGICA DE IDENTIFICAÇÃO AUTOMÁTICA DE ACESSO ---
-  // Esta função garante que, se um administrador adicionar um e-mail de membro, 
-  // o usuário correspondente ganhará acesso automaticamente ao "Espaço Acadêmico" na próxima atualização.
+  // --- LÓGICA DE IDENTIFICAÇÃO AUTOMÁTICA E PERMISSÃO MANUAL ---
   useEffect(() => {
     if (currentUser) {
       const emailLower = currentUser.email.toLowerCase();
-      const isMember = members.some(m => m.email.toLowerCase() === emailLower);
+      const memberData = members.find(m => m.email.toLowerCase() === emailLower);
       const isAdmin = emailLower === MASTER_ADMIN_EMAIL;
       
       let newRole: UserProfile['role'] = 'student';
       if (isAdmin) newRole = 'admin';
-      else if (isMember) newRole = 'member';
+      else if (memberData) newRole = 'member';
 
-      if (currentUser.role !== newRole) {
+      // Verifica se houve mudança de cargo ou de permissão de acesso
+      const shouldUpdate = 
+        currentUser.role !== newRole || 
+        currentUser.acessoLiberado !== (memberData?.acessoLiberado || isAdmin);
+
+      if (shouldUpdate) {
         const updatedUser = { 
           ...currentUser, 
           role: newRole, 
-          status: isMember || isAdmin ? 'ativo' : 'inativo' 
+          status: memberData || isAdmin ? 'ativo' : 'inativo',
+          acessoLiberado: isAdmin || (memberData?.acessoLiberado === true)
         } as UserProfile;
         setCurrentUser(updatedUser);
         localStorage.setItem('lapib_user', JSON.stringify(updatedUser));
@@ -79,19 +83,26 @@ const App: React.FC = () => {
 
   const handleLogin = (user: UserProfile) => {
     const emailLower = user.email.toLowerCase();
-    const isMember = members.some(m => m.email.toLowerCase() === emailLower);
+    const memberData = members.find(m => m.email.toLowerCase() === emailLower);
     const isAdmin = emailLower === MASTER_ADMIN_EMAIL;
     
     const loggedUser: UserProfile = {
       ...user,
-      role: isAdmin ? 'admin' : (isMember ? 'member' : 'student'),
-      status: isMember || isAdmin ? 'ativo' : 'inativo'
+      role: isAdmin ? 'admin' : (memberData ? 'member' : 'student'),
+      status: memberData || isAdmin ? 'ativo' : 'inativo',
+      acessoLiberado: isAdmin || (memberData?.acessoLiberado === true)
     };
 
     setCurrentUser(loggedUser);
     setIsAuthenticated(true);
     localStorage.setItem('lapib_auth_status', 'true');
     localStorage.setItem('lapib_user', JSON.stringify(loggedUser));
+  };
+
+  const handleToggleMemberAccess = (memberId: string) => {
+    setMembers(prev => prev.map(m => 
+      m.id === memberId ? { ...m, acessoLiberado: !m.acessoLiberado } : m
+    ));
   };
 
   const handleLogout = () => {
@@ -102,7 +113,6 @@ const App: React.FC = () => {
     setView('home');
   };
 
-  // --- PERSISTENCE OF STATE DATA ---
   const [projects, setProjects] = useState<Project[]>(() => {
     const saved = localStorage.getItem('lapib_projects');
     return saved ? JSON.parse(saved) : [
@@ -546,6 +556,8 @@ const App: React.FC = () => {
                   members={members} 
                   onAddMember={(m) => setMembers([m, ...members])} 
                   onDeleteMember={(id) => setMembers(members.filter(m => m.id !== id))} 
+                  onToggleAccess={handleToggleMemberAccess}
+                  currentUser={currentUser}
                 />
               )}
 

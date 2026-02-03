@@ -6,12 +6,13 @@ export interface UserProfile {
   id: string;
   fullName: string;
   email: string;
-  password?: string; // Novo campo para autenticação
+  password?: string;
   photoUrl: string;
   role: 'admin' | 'member' | 'student';
   cpf?: string;
   registrationId?: string;
   status?: 'ativo' | 'inativo';
+  acessoLiberado?: boolean; // Novo campo de permissão manual
 }
 
 export interface Member {
@@ -22,6 +23,7 @@ export interface Member {
   photoUrl: string;
   bio?: string;
   lattesUrl?: string;
+  acessoLiberado?: boolean; // Novo campo de permissão manual
 }
 
 export interface Project {

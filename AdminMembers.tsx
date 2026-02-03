@@ -1,14 +1,16 @@
 
 import React, { useState } from 'react';
-import { Member } from './types';
+import { Member, UserProfile } from './types';
 
 interface AdminMembersProps {
   members: Member[];
   onAddMember: (member: Member) => void;
   onDeleteMember: (id: string) => void;
+  onToggleAccess: (id: string) => void; // Nova prop de controle
+  currentUser: UserProfile | null;
 }
 
-const AdminMembers: React.FC<AdminMembersProps> = ({ members, onAddMember, onDeleteMember }) => {
+const AdminMembers: React.FC<AdminMembersProps> = ({ members, onAddMember, onDeleteMember, onToggleAccess, currentUser }) => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [newMember, setNewMember] = useState<Partial<Member>>({
@@ -17,8 +19,11 @@ const AdminMembers: React.FC<AdminMembersProps> = ({ members, onAddMember, onDel
     role: '',
     bio: '',
     lattesUrl: '',
-    photoUrl: ''
+    photoUrl: '',
+    acessoLiberado: false
   });
+
+  const isAdminMaster = currentUser?.email === 'lapibfesgo@gmail.com';
 
   const filteredMembers = members.filter(m => 
     m.fullName.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -38,10 +43,11 @@ const AdminMembers: React.FC<AdminMembersProps> = ({ members, onAddMember, onDel
       role: newMember.role.toUpperCase(),
       photoUrl: newMember.photoUrl || `https://ui-avatars.com/api/?name=${newMember.fullName}&background=055c47&color=fff`,
       bio: newMember.bio,
-      lattesUrl: newMember.lattesUrl
+      lattesUrl: newMember.lattesUrl,
+      acessoLiberado: false // Por padrão, novos membros começam bloqueados
     };
     onAddMember(member);
-    setNewMember({ fullName: '', email: '', role: '', bio: '', lattesUrl: '', photoUrl: '' });
+    setNewMember({ fullName: '', email: '', role: '', bio: '', lattesUrl: '', photoUrl: '', acessoLiberado: false });
     setShowAddForm(false);
   };
 
@@ -116,6 +122,17 @@ const AdminMembers: React.FC<AdminMembersProps> = ({ members, onAddMember, onDel
                   </td>
                   <td className="px-10 py-7 text-right">
                     <div className="flex items-center justify-end gap-3 opacity-0 group-hover:opacity-100 transition-all translate-x-4 group-hover:translate-x-0">
+                      {/* BOTAO DE CONTROLE DE ACESSO - EXCLUSIVO MASTER */}
+                      {isAdminMaster && (
+                        <button 
+                          onClick={() => onToggleAccess(member.id)}
+                          className={`w-11 h-11 rounded-xl transition-all flex items-center justify-center shadow-sm ${member.acessoLiberado ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-300'}`}
+                          title={member.acessoLiberado ? "Revogar Acesso Acadêmico" : "Liberar Espaço Acadêmico"}
+                        >
+                          <i className={`fa-solid ${member.acessoLiberado ? 'fa-lock-open' : 'fa-lock'} text-[11px]`}></i>
+                        </button>
+                      )}
+
                       <a 
                         href={member.lattesUrl || "#"} 
                         target="_blank" 

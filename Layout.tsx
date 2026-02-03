@@ -21,8 +21,8 @@ const Layout: React.FC<LayoutProps> = ({ children, activeView, onNavigate, user,
   };
 
   const isAdmin = user?.role === 'admin';
-  const isMember = user?.role === 'member';
-  const isAuthorized = isAdmin || isMember;
+  // Acesso restrito agora depende exclusivamente de permissão manual ou ser administrador
+  const isAuthorized = isAdmin || (user?.acessoLiberado === true);
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#f8fafc]">
@@ -61,7 +61,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeView, onNavigate, user,
           <NavItem id="projects" icon="fa-flask" label="Projetos" active={activeView === 'projects'} onClick={() => navigateAndClose('projects')} />
           <NavItem id="members" icon="fa-users" label="Membros" active={activeView === 'members'} onClick={() => navigateAndClose('members')} />
           
-          {/* ABA RESTRITA: ESPAÇO ACADÊMICO (Visível apenas para Administradores e Membros Efetivos) */}
+          {/* ABA RESTRITA: ESPAÇO ACADÊMICO (Visível apenas para quem tem permissão manual) */}
           {isAuthorized && (
             <div className="pt-4 mt-4 border-t border-white/10">
               <p className="px-6 py-2 text-[8px] font-black text-white/30 uppercase tracking-[0.2em]">Espaço Acadêmico</p>
