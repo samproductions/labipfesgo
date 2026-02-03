@@ -23,6 +23,8 @@ export interface Member {
   photoUrl: string;
   bio?: string;
   lattesUrl?: string;
+  cpf?: string;
+  registrationId?: string;
   acessoLiberado?: boolean; // Novo campo de permissão manual
 }
 

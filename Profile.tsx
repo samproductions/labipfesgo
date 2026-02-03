@@ -19,7 +19,6 @@ const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser }) => {
     e.preventDefault();
     setLoading(true);
     
-    // Simulate API delay
     await new Promise(r => setTimeout(r, 800));
     
     const updatedUser = { ...user, fullName, cpf, registrationId, photoUrl };
@@ -66,10 +65,10 @@ const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser }) => {
             <div>
               <h2 className="text-3xl font-black text-slate-800 tracking-tighter uppercase leading-none">{user.fullName}</h2>
               <div className="flex flex-wrap items-center gap-3 mt-3">
-                <span className={`px-2.5 py-1 rounded-full text-[8px] font-black uppercase tracking-[0.2em] ${user.role === 'student' ? 'bg-slate-100 text-slate-400' : 'bg-emerald-100 text-emerald-600'}`}>
+                <span className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-[0.2em] shadow-sm border ${user.role === 'admin' ? 'bg-emerald-600 text-white border-emerald-400' : (user.role === 'member' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-400 border-slate-200')}`}>
                   {user.role === 'admin' ? 'DIRETORIA MASTER' : (user.role === 'member' ? 'MEMBRO EFETIVO' : 'VISITANTE / ESTUDANTE')}
                 </span>
-                <span className={`px-2.5 py-1 rounded-full text-[8px] font-black uppercase tracking-[0.2em] ${user.status === 'ativo' ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
+                <span className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-[0.2em] shadow-sm border ${user.status === 'ativo' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-slate-50 text-slate-400 border-slate-100'}`}>
                   {user.status === 'ativo' ? 'Vínculo Ativo' : 'Aguardando Aprovação'}
                 </span>
               </div>
@@ -94,7 +93,16 @@ const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser }) => {
               />
             </div>
             <div className="space-y-1">
-              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">CPF (Certificados)</label>
+              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">E-mail Acadêmico</label>
+              <input 
+                disabled
+                type="text"
+                className="w-full bg-slate-100 border border-slate-200 rounded-2xl px-5 py-4 text-sm opacity-50 font-bold cursor-not-allowed"
+                value={user.email}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">CPF (Registro Oficial)</label>
               <input 
                 disabled={!isEditing}
                 type="text"
@@ -105,7 +113,7 @@ const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser }) => {
               />
             </div>
             <div className="space-y-1">
-              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Matrícula Acadêmica</label>
+              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Matrícula Estácio GO</label>
               <input 
                 disabled={!isEditing}
                 type="text"
@@ -113,15 +121,6 @@ const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser }) => {
                 className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-sm focus:ring-2 focus:ring-emerald-500 outline-none transition disabled:opacity-50 font-bold"
                 value={registrationId}
                 onChange={e => setRegistrationId(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">E-mail Acadêmico</label>
-              <input 
-                disabled
-                type="text"
-                className="w-full bg-slate-100 border border-slate-200 rounded-2xl px-5 py-4 text-sm opacity-50 font-bold cursor-not-allowed"
-                value={user.email}
               />
             </div>
 
@@ -141,13 +140,22 @@ const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser }) => {
       </div>
 
       <div className="bg-white p-10 rounded-[3rem] border border-slate-200 shadow-sm">
-        <h3 className="font-black text-[#055c47] uppercase text-[10px] tracking-[0.3em] mb-8">Informação do Vínculo Acadêmico</h3>
-        <div className="p-8 bg-emerald-50 rounded-[2rem] border border-emerald-100 flex items-start gap-6">
-           <i className="fa-solid fa-circle-info text-emerald-600 text-2xl mt-1"></i>
-           <div className="space-y-2">
-              <p className="text-[10px] font-black text-emerald-900 uppercase tracking-widest">Sincronização de Documentos Digitais</p>
+        <h3 className="font-black text-[#055c47] uppercase text-[10px] tracking-[0.3em] mb-8">Selo de Identidade Acadêmica</h3>
+        <div className="p-8 bg-emerald-50 rounded-[2rem] border border-emerald-100 flex items-center gap-8 relative overflow-hidden group">
+           <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:rotate-12 transition-transform duration-700">
+             <i className="fa-solid fa-stamp text-7xl"></i>
+           </div>
+           <div className="w-20 h-20 bg-white border-2 border-emerald-500 rounded-full flex flex-col items-center justify-center -rotate-12 shadow-lg shrink-0">
+             <span className="text-[6px] font-black text-emerald-600 uppercase tracking-widest mb-0.5">Membro</span>
+             <span className="text-sm font-black text-emerald-700 leading-none">LAPIB</span>
+             <span className="text-[5px] font-black text-emerald-500 uppercase tracking-[0.2em] mt-0.5">EFETIVO</span>
+           </div>
+           <div className="space-y-2 text-left">
+              <p className="text-[10px] font-black text-emerald-900 uppercase tracking-widest leading-none">Vínculo Sincronizado em Tempo Real</p>
               <p className="text-[11px] text-emerald-800 leading-relaxed font-medium">
-                Seu status de vínculo é gerenciado pela diretoria master. {user.role === 'student' ? 'Como visitante, você pode visualizar as frentes públicas da liga, mas precisa de aprovação em processo seletivo para acessar o Espaço Acadêmico restrito.' : 'Você possui acesso total às ferramentas de gestão, laboratórios e secretaria digital.'}
+                {user.acessoLiberado 
+                  ? 'Sua chave de acesso está validada. Você possui permissão total para laboratórios, projetos e secretaria digital.'
+                  : 'Seu perfil está aguardando vinculação oficial pelo Administrador Master para liberação do Espaço Acadêmico.'}
               </p>
            </div>
         </div>

@@ -20,7 +20,11 @@ const ProjectFormModal: React.FC<ProjectFormModalProps> = ({ onClose, onSave }) 
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.title || !formData.advisor) return;
+    console.log("ProjectForm: Iniciando validação...");
+    if (!formData.title || !formData.advisor) {
+      alert("Preencha o título e o orientador.");
+      return;
+    }
     
     const newProject: Project = {
       id: Date.now().toString(),
@@ -34,6 +38,7 @@ const ProjectFormModal: React.FC<ProjectFormModalProps> = ({ onClose, onSave }) 
       studentTeam: formData.studentTeam
     };
     
+    console.log("ProjectForm: Protocolando dados...");
     onSave(newProject);
   };
 
@@ -41,7 +46,10 @@ const ProjectFormModal: React.FC<ProjectFormModalProps> = ({ onClose, onSave }) 
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = () => setFormData({ ...formData, imageUrl: reader.result as string });
+      reader.onloadend = () => {
+        setFormData({ ...formData, imageUrl: reader.result as string });
+        console.log("ProjectForm: Imagem carregada localmente.");
+      };
       reader.readAsDataURL(file);
     }
   };
@@ -158,7 +166,7 @@ const ProjectFormModal: React.FC<ProjectFormModalProps> = ({ onClose, onSave }) 
               className="flex-1 py-5 rounded-2xl bg-[#055c47] text-white font-black text-[10px] uppercase tracking-widest shadow-xl hover:bg-black transition-all active:scale-95 flex items-center justify-center gap-3"
             >
               <i className="fa-solid fa-file-signature"></i>
-              Protocolar Atividade
+              Confirmar Protocolo
             </button>
           </div>
         </form>

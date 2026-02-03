@@ -25,7 +25,6 @@ const AdminAttendance: React.FC<AdminAttendanceProps> = ({
   const [isEventAvulso, setIsEventAvulso] = useState(false);
 
   const handleManualAdd = () => {
-    // Definir título do evento e data
     let eventTitle = '';
     let eventDate = new Date().toISOString().split('T')[0];
 
@@ -46,7 +45,6 @@ const AdminAttendance: React.FC<AdminAttendanceProps> = ({
     }
 
     if (isAvulsa) {
-      // Registro de pessoa avulsa (não membro)
       if (!manualName.trim()) {
         alert("Digite o nome do acadêmico avulso.");
         return;
@@ -63,7 +61,6 @@ const AdminAttendance: React.FC<AdminAttendanceProps> = ({
       onAddAttendance(newAR);
       setManualName('');
     } else {
-      // Registro de membro da lista
       const member = members.find(m => m.id === selectedMemberId);
       if (!member) {
         alert("Selecione um acadêmico da lista.");

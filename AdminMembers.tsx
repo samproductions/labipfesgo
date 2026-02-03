@@ -6,7 +6,7 @@ interface AdminMembersProps {
   members: Member[];
   onAddMember: (member: Member) => void;
   onDeleteMember: (id: string) => void;
-  onToggleAccess: (id: string) => void; // Nova prop de controle
+  onToggleAccess: (id: string) => void; // Prop de controle
   currentUser: UserProfile | null;
 }
 
@@ -20,6 +20,8 @@ const AdminMembers: React.FC<AdminMembersProps> = ({ members, onAddMember, onDel
     bio: '',
     lattesUrl: '',
     photoUrl: '',
+    cpf: '',
+    registrationId: '',
     acessoLiberado: false
   });
 
@@ -32,8 +34,9 @@ const AdminMembers: React.FC<AdminMembersProps> = ({ members, onAddMember, onDel
   );
 
   const handleAdd = () => {
-    if (!newMember.fullName || !newMember.role || !newMember.email) {
-      alert("Por favor, preencha nome, cargo e e-mail.");
+    console.log("AdminMembers: Iniciando cadastro...");
+    if (!newMember.fullName || !newMember.role || !newMember.email || !newMember.cpf || !newMember.registrationId) {
+      alert("Por favor, preencha todos os campos obrigatórios (incluindo CPF e Matrícula).");
       return;
     }
     const member: Member = {
@@ -44,10 +47,12 @@ const AdminMembers: React.FC<AdminMembersProps> = ({ members, onAddMember, onDel
       photoUrl: newMember.photoUrl || `https://ui-avatars.com/api/?name=${newMember.fullName}&background=055c47&color=fff`,
       bio: newMember.bio,
       lattesUrl: newMember.lattesUrl,
-      acessoLiberado: false // Por padrão, novos membros começam bloqueados
+      cpf: newMember.cpf,
+      registrationId: newMember.registrationId,
+      acessoLiberado: false 
     };
     onAddMember(member);
-    setNewMember({ fullName: '', email: '', role: '', bio: '', lattesUrl: '', photoUrl: '', acessoLiberado: false });
+    setNewMember({ fullName: '', email: '', role: '', bio: '', lattesUrl: '', photoUrl: '', cpf: '', registrationId: '', acessoLiberado: false });
     setShowAddForm(false);
   };
 
@@ -122,7 +127,6 @@ const AdminMembers: React.FC<AdminMembersProps> = ({ members, onAddMember, onDel
                   </td>
                   <td className="px-10 py-7 text-right">
                     <div className="flex items-center justify-end gap-3 opacity-0 group-hover:opacity-100 transition-all translate-x-4 group-hover:translate-x-0">
-                      {/* BOTAO DE CONTROLE DE ACESSO - EXCLUSIVO MASTER */}
                       {isAdminMaster && (
                         <button 
                           onClick={() => onToggleAccess(member.id)}
@@ -178,7 +182,7 @@ const AdminMembers: React.FC<AdminMembersProps> = ({ members, onAddMember, onDel
               <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.3em] mt-2">Protocolo de Cadastro de Membro Efetivo</p>
             </header>
             
-            <div className="space-y-6 relative z-10">
+            <form onSubmit={e => { e.preventDefault(); handleAdd(); }} className="space-y-6 relative z-10">
               <div className="flex items-center gap-6">
                 <div className="w-20 h-20 bg-slate-50 rounded-2xl border-2 border-slate-100 overflow-hidden shrink-0 flex items-center justify-center">
                   {newMember.photoUrl ? <img src={newMember.photoUrl} className="w-full h-full object-cover" /> : <i className="fa-solid fa-user text-slate-200 text-3xl"></i>}
@@ -193,6 +197,7 @@ const AdminMembers: React.FC<AdminMembersProps> = ({ members, onAddMember, onDel
                 <div className="space-y-1.5 text-left">
                   <label className="text-[9px] font-black text-slate-400 uppercase ml-4 tracking-widest">Nome Institucional</label>
                   <input 
+                    required
                     type="text"
                     placeholder="Ex: Victor Vilardell" 
                     className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-[11px] font-bold uppercase outline-none focus:ring-4 focus:ring-[#055c47]/10 focus:border-[#055c47] transition-all"
@@ -204,6 +209,7 @@ const AdminMembers: React.FC<AdminMembersProps> = ({ members, onAddMember, onDel
                 <div className="space-y-1.5 text-left">
                   <label className="text-[9px] font-black text-slate-400 uppercase ml-4 tracking-widest">E-mail Acadêmico</label>
                   <input 
+                    required
                     type="email"
                     placeholder="exemplo@estacio.br" 
                     className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-[11px] font-bold outline-none focus:ring-4 focus:ring-[#055c47]/10 focus:border-[#055c47] transition-all"
@@ -217,6 +223,7 @@ const AdminMembers: React.FC<AdminMembersProps> = ({ members, onAddMember, onDel
                 <div className="space-y-1.5 text-left">
                   <label className="text-[9px] font-black text-slate-400 uppercase ml-4 tracking-widest">Cargo Designado</label>
                   <input 
+                    required
                     type="text"
                     placeholder="Ex: Diretor Científico" 
                     className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-[11px] font-bold uppercase outline-none focus:ring-4 focus:ring-[#055c47]/10 focus:border-[#055c47] transition-all"
@@ -230,8 +237,33 @@ const AdminMembers: React.FC<AdminMembersProps> = ({ members, onAddMember, onDel
                     type="text"
                     placeholder="http://lattes.cnpq.br/..." 
                     className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-[11px] font-bold outline-none focus:ring-4 focus:ring-[#055c47]/10 focus:border-[#055c47] transition-all"
-                    value={newMember.lattesUrl}
+                    value={newMember.lattesUrl || ''}
                     onChange={e => setNewMember({...newMember, lattesUrl: e.target.value})}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-1.5 text-left">
+                  <label className="text-[9px] font-black text-slate-400 uppercase ml-4 tracking-widest">CPF (Obrigatório)</label>
+                  <input 
+                    required
+                    type="text"
+                    placeholder="000.000.000-00" 
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-[11px] font-bold outline-none focus:ring-4 focus:ring-[#055c47]/10 focus:border-[#055c47] transition-all"
+                    value={newMember.cpf || ''}
+                    onChange={e => setNewMember({...newMember, cpf: e.target.value})}
+                  />
+                </div>
+                <div className="space-y-1.5 text-left">
+                  <label className="text-[9px] font-black text-slate-400 uppercase ml-4 tracking-widest">Matrícula Estácio</label>
+                  <input 
+                    required
+                    type="text"
+                    placeholder="202X.XXXXXX" 
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-[11px] font-bold outline-none focus:ring-4 focus:ring-[#055c47]/10 focus:border-[#055c47] transition-all"
+                    value={newMember.registrationId || ''}
+                    onChange={e => setNewMember({...newMember, registrationId: e.target.value})}
                   />
                 </div>
               </div>
@@ -241,27 +273,28 @@ const AdminMembers: React.FC<AdminMembersProps> = ({ members, onAddMember, onDel
                 <textarea 
                   placeholder="Descreva a formação, áreas de interesse e foco de pesquisa..." 
                   className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-6 py-4 text-[11px] font-bold h-24 resize-none outline-none focus:ring-4 focus:ring-[#055c47]/10 focus:border-[#055c47] transition-all"
-                  value={newMember.bio}
+                  value={newMember.bio || ''}
                   onChange={e => setNewMember({...newMember, bio: e.target.value})}
                 />
               </div>
-            </div>
 
-            <div className="flex gap-4 relative z-10 pt-4">
-              <button 
-                onClick={() => setShowAddForm(false)}
-                className="flex-1 bg-slate-100 text-slate-500 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-all active:scale-95"
-              >
-                Descartar
-              </button>
-              <button 
-                onClick={handleAdd}
-                className="flex-1 bg-[#055c47] text-white py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl hover:bg-black transition-all active:scale-95 flex items-center justify-center gap-3"
-              >
-                <i className="fa-solid fa-stamp"></i>
-                Confirmar Vínculo
-              </button>
-            </div>
+              <div className="flex gap-4 pt-4">
+                <button 
+                  type="button"
+                  onClick={() => setShowAddForm(false)}
+                  className="flex-1 bg-slate-100 text-slate-500 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-all active:scale-95"
+                >
+                  Descartar
+                </button>
+                <button 
+                  type="submit"
+                  className="flex-1 bg-[#055c47] text-white py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl hover:bg-black transition-all active:scale-95 flex items-center justify-center gap-3"
+                >
+                  <i className="fa-solid fa-stamp"></i>
+                  Confirmar Vínculo
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
