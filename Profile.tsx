@@ -65,12 +65,12 @@ const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser }) => {
           <div className="flex justify-between items-start">
             <div>
               <h2 className="text-3xl font-black text-slate-800 tracking-tighter uppercase leading-none">{user.fullName}</h2>
-              <div className="flex items-center gap-3 mt-3">
-                <p className="text-slate-400 font-black text-[10px] uppercase tracking-widest">
-                  {user.role === 'admin' ? 'Diretoria Executiva' : 'Acadêmico de Biomedicina'}
-                </p>
+              <div className="flex flex-wrap items-center gap-3 mt-3">
+                <span className={`px-2.5 py-1 rounded-full text-[8px] font-black uppercase tracking-[0.2em] ${user.role === 'student' ? 'bg-slate-100 text-slate-400' : 'bg-emerald-100 text-emerald-600'}`}>
+                  {user.role === 'admin' ? 'DIRETORIA MASTER' : (user.role === 'member' ? 'MEMBRO EFETIVO' : 'VISITANTE / ESTUDANTE')}
+                </span>
                 <span className={`px-2.5 py-1 rounded-full text-[8px] font-black uppercase tracking-[0.2em] ${user.status === 'ativo' ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
-                  {user.status === 'ativo' ? 'Vínculo Ativo' : 'Pendente'}
+                  {user.status === 'ativo' ? 'Vínculo Ativo' : 'Aguardando Aprovação'}
                 </span>
               </div>
             </div>
@@ -147,7 +147,7 @@ const Profile: React.FC<ProfileProps> = ({ user, onUpdateUser }) => {
            <div className="space-y-2">
               <p className="text-[10px] font-black text-emerald-900 uppercase tracking-widest">Sincronização de Documentos Digitais</p>
               <p className="text-[11px] text-emerald-800 leading-relaxed font-medium">
-                Seu status de vínculo é gerenciado pela diretoria master. Apenas membros com status "Ativo" e dados completos podem gerar declarações, certificados e acesso a editais restritos através da Secretaria Digital.
+                Seu status de vínculo é gerenciado pela diretoria master. {user.role === 'student' ? 'Como visitante, você pode visualizar as frentes públicas da liga, mas precisa de aprovação em processo seletivo para acessar o Espaço Acadêmico restrito.' : 'Você possui acesso total às ferramentas de gestão, laboratórios e secretaria digital.'}
               </p>
            </div>
         </div>

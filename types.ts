@@ -6,6 +6,7 @@ export interface UserProfile {
   id: string;
   fullName: string;
   email: string;
+  password?: string; // Novo campo para autenticação
   photoUrl: string;
   role: 'admin' | 'member' | 'student';
   cpf?: string;

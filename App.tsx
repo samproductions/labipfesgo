@@ -21,25 +21,23 @@ import ProjectDetailsModal from './ProjectDetailsModal';
 import ProjectFormModal from './ProjectFormModal';
 import EventFormModal from './EventFormModal';
 import LabFormModal from './LabFormModal';
+import Auth from './Auth'; // Novo Componente
 import { LEAGUE_INFO, LAPIB_LOGO_BASE64 } from './constants';
 
 const MASTER_ADMIN_EMAIL = 'lapibfesgo@gmail.com';
 
 const App: React.FC = () => {
+  // --- AUTH STATE ---
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    return localStorage.getItem('lapib_auth_status') === 'true';
+  });
+
   // --- STATE PERSISTENCE ---
   const [appLogo, setAppLogo] = useState<string>(() => localStorage.getItem('lapib_logo') || LAPIB_LOGO_BASE64);
   
-  const [currentUser, setCurrentUser] = useState<UserProfile>(() => {
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
     const saved = localStorage.getItem('lapib_user');
-    return saved ? JSON.parse(saved) : { 
-      id: 'admin', 
-      fullName: 'Victor Vilardel', 
-      email: MASTER_ADMIN_EMAIL, 
-      photoUrl: 'https://ui-avatars.com/api/?name=Victor+V&background=f1f5f9&color=055c47',
-      role: 'admin',
-      status: 'ativo',
-      registrationId: '202108149231'
-    };
+    return saved ? JSON.parse(saved) : null;
   });
 
   const [members, setMembers] = useState<Member[]>(() => {
@@ -53,6 +51,48 @@ const App: React.FC = () => {
       { id: '6', fullName: 'Victor Vilardel', email: MASTER_ADMIN_EMAIL, role: 'PRESIDENTE', photoUrl: 'https://ui-avatars.com/api/?name=Victor+V&background=055c47&color=fff', bio: 'Fundador da LAPIB, focado em inovação diagnóstica e gestão acadêmica.' },
     ];
   });
+
+  // --- LÓGICA DE CLASSIFICAÇÃO DE ACESSO ---
+  useEffect(() => {
+    if (currentUser) {
+      const isMember = members.some(m => m.email.toLowerCase() === currentUser.email.toLowerCase());
+      const isAdmin = currentUser.email.toLowerCase() === MASTER_ADMIN_EMAIL;
+      
+      let newRole: UserProfile['role'] = 'student';
+      if (isAdmin) newRole = 'admin';
+      else if (isMember) newRole = 'member';
+
+      if (currentUser.role !== newRole) {
+        const updatedUser = { ...currentUser, role: newRole, status: isMember || isAdmin ? 'ativo' : 'inativo' } as UserProfile;
+        setCurrentUser(updatedUser);
+      }
+    }
+  }, [members, currentUser?.email]);
+
+  const handleLogin = (user: UserProfile) => {
+    // Verificar se o e-mail logado está na lista de membros oficiais
+    const isMember = members.some(m => m.email.toLowerCase() === user.email.toLowerCase());
+    const isAdmin = user.email.toLowerCase() === MASTER_ADMIN_EMAIL;
+    
+    const loggedUser: UserProfile = {
+      ...user,
+      role: isAdmin ? 'admin' : (isMember ? 'member' : 'student'),
+      status: isMember || isAdmin ? 'ativo' : 'inativo'
+    };
+
+    setCurrentUser(loggedUser);
+    setIsAuthenticated(true);
+    localStorage.setItem('lapib_auth_status', 'true');
+    localStorage.setItem('lapib_user', JSON.stringify(loggedUser));
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    setCurrentUser(null);
+    localStorage.removeItem('lapib_auth_status');
+    localStorage.removeItem('lapib_user');
+    setView('home');
+  };
 
   const [projects, setProjects] = useState<Project[]>(() => {
     const saved = localStorage.getItem('lapib_projects');
@@ -186,6 +226,7 @@ const App: React.FC = () => {
   };
 
   const handleSendMessage = (text: string, file?: File) => {
+    if (!currentUser) return;
     const newMsg: DirectMessage = {
       id: Date.now().toString(),
       senderId: currentUser.id,
@@ -201,7 +242,7 @@ const App: React.FC = () => {
   };
 
   const handleAdminSendMessage = () => {
-    if (!chatInput || !selectedMember) return;
+    if (!chatInput || !selectedMember || !currentUser) return;
     const msg: DirectMessage = { 
       id: Date.now().toString(), 
       senderId: currentUser.id, 
@@ -227,6 +268,10 @@ const App: React.FC = () => {
     }
   };
 
+  if (!isAuthenticated || !currentUser) {
+    return <Auth onLogin={handleLogin} />;
+  }
+
   const unreadCount = directMessages.filter(m => m.receiverId === currentUser.id && !m.read).length;
 
   const AdminTabBtn: React.FC<{ id: AdminTab; icon: string; label: string }> = ({ id, icon, label }) => (
@@ -244,7 +289,7 @@ const App: React.FC = () => {
       activeView={view} 
       onNavigate={setView} 
       user={currentUser} 
-      onLogout={() => { localStorage.clear(); window.location.reload(); }} 
+      onLogout={handleLogout} 
       logoUrl={appLogo}
       unreadCount={unreadCount}
     >

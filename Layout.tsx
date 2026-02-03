@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { ViewState, UserProfile } from './types';
 
@@ -60,23 +61,21 @@ const Layout: React.FC<LayoutProps> = ({ children, activeView, onNavigate, user,
           <NavItem id="projects" icon="fa-flask" label="Projetos" active={activeView === 'projects'} onClick={() => navigateAndClose('projects')} />
           <NavItem id="members" icon="fa-users" label="Membros" active={activeView === 'members'} onClick={() => navigateAndClose('members')} />
           
-          <div className="pt-4 mt-4 border-t border-white/10">
-            <p className="px-6 py-2 text-[8px] font-black text-white/30 uppercase tracking-[0.2em]">Espaço Acadêmico</p>
-            <NavItem id="events" icon="fa-calendar" label="Cronograma" active={activeView === 'events'} onClick={() => navigateAndClose('events')} />
-            <NavItem id="labs" icon="fa-microscope" label="Laboratórios" active={activeView === 'labs'} onClick={() => navigateAndClose('labs')} />
-            <NavItem id="ingresso" icon="fa-id-card" label="Ingresso na Liga" active={activeView === 'ingresso'} onClick={() => navigateAndClose('ingresso')} />
-            
-            {isAuthorized && (
-              <>
-                <NavItem id="secretaria" icon="fa-file-shield" label="Secretaria Digital" active={activeView === 'secretaria'} onClick={() => navigateAndClose('secretaria')} />
-                <NavItem id="messages" icon="fa-comment" label="Mensagens" active={activeView === 'messages'} onClick={() => navigateAndClose('messages')} badge={unreadCount > 0} />
-              </>
-            )}
-          </div>
+          {/* ABA RESTRITA: ESPAÇO ACADÊMICO (Visível apenas para Administradores e Membros Efetivos) */}
+          {isAuthorized && (
+            <div className="pt-4 mt-4 border-t border-white/10">
+              <p className="px-6 py-2 text-[8px] font-black text-white/30 uppercase tracking-[0.2em]">Espaço Acadêmico</p>
+              <NavItem id="events" icon="fa-calendar" label="Cronograma" active={activeView === 'events'} onClick={() => navigateAndClose('events')} />
+              <NavItem id="labs" icon="fa-microscope" label="Laboratórios" active={activeView === 'labs'} onClick={() => navigateAndClose('labs')} />
+              <NavItem id="secretaria" icon="fa-file-shield" label="Secretaria Digital" active={activeView === 'secretaria'} onClick={() => navigateAndClose('secretaria')} />
+              <NavItem id="messages" icon="fa-comment" label="Mensagens" active={activeView === 'messages'} onClick={() => navigateAndClose('messages')} badge={unreadCount > 0} />
+            </div>
+          )}
 
           <div className="pt-4 mt-4 border-t border-white/10">
-             <p className="px-6 py-2 text-[8px] font-black text-white/30 uppercase tracking-[0.2em]">Configurações</p>
-             <NavItem id="profile" icon="fa-user-gear" label="Meu Perfil" active={activeView === 'profile'} onClick={() => navigateAndClose('profile')} />
+            <p className="px-6 py-2 text-[8px] font-black text-white/30 uppercase tracking-[0.2em]">Seleção e Perfil</p>
+            <NavItem id="ingresso" icon="fa-id-card" label="Ingresso na Liga" active={activeView === 'ingresso'} onClick={() => navigateAndClose('ingresso')} />
+            <NavItem id="profile" icon="fa-user-gear" label="Meu Perfil" active={activeView === 'profile'} onClick={() => navigateAndClose('profile')} />
           </div>
 
           {isAdmin && (
@@ -92,7 +91,9 @@ const Layout: React.FC<LayoutProps> = ({ children, activeView, onNavigate, user,
             <div className="flex items-center gap-4">
               <img src={user.photoUrl} className="w-10 h-10 rounded-xl border border-white/20 object-cover shadow-lg" alt="Avatar" />
               <div className="flex-1 min-w-0">
-                <p className="text-white font-black text-[10px] uppercase tracking-wider truncate">{user.fullName}</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-white font-black text-[10px] uppercase tracking-wider truncate">{user.fullName}</p>
+                </div>
                 <button onClick={onLogout} className="text-emerald-400 text-[8px] font-black uppercase tracking-[0.2em] hover:text-white transition-colors">Sair da Conta</button>
               </div>
             </div>
