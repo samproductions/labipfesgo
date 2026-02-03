@@ -1,8 +1,8 @@
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-import { getStorage } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
-import { getAuth } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { initializeApp } from "firebase/app";
+import { getFirestore } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
+import { getAuth } from "firebase/auth";
 
 // Utiliza variáveis de ambiente injetadas pelo Vite/Vercel
 const firebaseConfig = {
@@ -14,10 +14,11 @@ const firebaseConfig = {
   appId: process.env.FIREBASE_APP_ID || "SEU_APP_ID"
 };
 
-// Verifica se as credenciais são válidas antes de inicializar para evitar Permission Denied no log
+// Verifica se as credenciais são válidas antes de inicializar para evitar Permission Denied
 export const isFirebaseConfigured = 
   firebaseConfig.apiKey !== "SUA_API_KEY" && 
-  firebaseConfig.projectId !== "seu-projeto";
+  firebaseConfig.projectId !== "seu-projeto" &&
+  !!firebaseConfig.apiKey;
 
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);

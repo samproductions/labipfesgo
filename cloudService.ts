@@ -8,12 +8,12 @@ import {
   updateDoc, 
   query, 
   orderBy 
-} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+} from "firebase/firestore";
 import { 
   ref, 
   uploadString, 
   getDownloadURL 
-} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
+} from "firebase/storage";
 import { UserProfile, Member, Project, CalendarEvent, Lab } from './types';
 
 class CloudService {
@@ -21,22 +21,30 @@ class CloudService {
    * Fallback Master: Salva localmente se a nuvem falhar
    */
   private static saveLocalFallback(key: string, data: any) {
-    const existing = JSON.parse(localStorage.getItem(key) || '[]');
-    const index = existing.findIndex((item: any) => item.id === data.id || item.email === data.email);
-    if (index >= 0) existing[index] = data;
-    else existing.push(data);
-    localStorage.setItem(key, JSON.stringify(existing));
+    try {
+      const existing = JSON.parse(localStorage.getItem(key) || '[]');
+      const index = existing.findIndex((item: any) => (data.id && item.id === data.id) || (data.email && item.email === data.email));
+      if (index >= 0) existing[index] = data;
+      else existing.push(data);
+      localStorage.setItem(key, JSON.stringify(existing));
+    } catch (e) {
+      console.error("Erro no local fallback:", e);
+    }
   }
 
   private static getLocalFallback(key: string): any[] {
-    return JSON.parse(localStorage.getItem(key) || '[]');
+    try {
+      return JSON.parse(localStorage.getItem(key) || '[]');
+    } catch (e) {
+      return [];
+    }
   }
 
   /**
    * Upload de Imagem com Fallback
    */
   static async uploadImage(base64Data: string, path: string): Promise<string> {
-    if (!base64Data.startsWith('data:image')) return base64Data;
+    if (!base64Data || !base64Data.startsWith('data:image')) return base64Data;
     if (!isFirebaseConfigured) return base64Data;
 
     try {
@@ -66,10 +74,11 @@ class CloudService {
     this.saveLocalFallback('lapib_local_users', user);
     if (!isFirebaseConfigured) return;
     try {
+      let finalPhoto = user.photoUrl;
       if (user.photoUrl?.startsWith('data:')) {
-        user.photoUrl = await this.uploadImage(user.photoUrl, `profiles/${user.email}`);
+        finalPhoto = await this.uploadImage(user.photoUrl, `profiles/${user.email}`);
       }
-      await setDoc(doc(db, "users", user.email.toLowerCase().trim()), user);
+      await setDoc(doc(db, "users", user.email.toLowerCase().trim()), { ...user, photoUrl: finalPhoto });
     } catch (e) {
       console.error("Erro ao salvar usuário na nuvem:", e);
     }
@@ -94,10 +103,11 @@ class CloudService {
     this.saveLocalFallback('lapib_local_members', member);
     if (!isFirebaseConfigured) return;
     try {
+      let finalPhoto = member.photoUrl;
       if (member.photoUrl?.startsWith('data:')) {
-        member.photoUrl = await this.uploadImage(member.photoUrl, `members/${member.id}`);
+        finalPhoto = await this.uploadImage(member.photoUrl, `members/${member.id}`);
       }
-      await setDoc(doc(db, "members", member.id), member);
+      await setDoc(doc(db, "members", member.id), { ...member, photoUrl: finalPhoto });
     } catch (e) {
       console.error("Erro ao salvar membro na nuvem:", e);
     }
@@ -140,10 +150,11 @@ class CloudService {
     this.saveLocalFallback('lapib_local_projects', project);
     if (!isFirebaseConfigured) return;
     try {
+      let finalImg = project.imageUrl;
       if (project.imageUrl?.startsWith('data:')) {
-        project.imageUrl = await this.uploadImage(project.imageUrl, `projects/${project.id}`);
+        finalImg = await this.uploadImage(project.imageUrl, `projects/${project.id}`);
       }
-      await setDoc(doc(db, "projects", project.id), project);
+      await setDoc(doc(db, "projects", project.id), { ...project, imageUrl: finalImg });
     } catch (e) {
       console.error("Erro ao salvar projeto na nuvem:", e);
     }
@@ -168,10 +179,11 @@ class CloudService {
     this.saveLocalFallback('lapib_local_events', event);
     if (!isFirebaseConfigured) return;
     try {
+      let finalImg = event.imageUrl;
       if (event.imageUrl?.startsWith('data:')) {
-        event.imageUrl = await this.uploadImage(event.imageUrl, `events/${event.id}`);
+        finalImg = await this.uploadImage(event.imageUrl, `events/${event.id}`);
       }
-      await setDoc(doc(db, "events", event.id), event);
+      await setDoc(doc(db, "events", event.id), { ...event, imageUrl: finalImg });
     } catch (e) {
       console.error("Erro ao salvar evento na nuvem:", e);
     }
